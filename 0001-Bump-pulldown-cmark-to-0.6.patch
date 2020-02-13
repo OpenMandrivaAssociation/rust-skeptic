@@ -1,0 +1,72 @@
+From 22423be7b62af427d062f09068c7a42af35b1fb2 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Robert-Andr=C3=A9=20Mauchin?= <zebob.m@gmail.com>
+Date: Thu, 1 Aug 2019 00:18:55 +0200
+Subject: [PATCH] Bump pulldown-cmark to 0.6
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Signed-off-by: Robert-André Mauchin <zebob.m@gmail.com>
+---
+ lib.rs     | 28 ++++++++++------------------
+ 2 files changed, 10 insertions(+), 18 deletions(-)
+
+diff --git a/lib.rs b/lib.rs
+index 08c0066..c6d23f8 100644
+--- a/lib.rs
++++ b/lib.rs
+@@ -169,7 +169,7 @@ fn extract_tests(config: &Config) -> Result<DocTestSuite, IoError> {
+ enum Buffer {
+     None,
+     Code(Vec<String>),
+-    Header(String),
++    Heading(String),
+ }
+ 
+ fn extract_tests_from_file(path: &Path) -> Result<DocTest, IoError> {
+@@ -199,24 +199,16 @@ fn extract_tests_from_string(s: &str, file_stem: &str) -> (Vec<Test>, Option<Str
+     let mut code_block_start = 0;
+     // Oh this isn't actually a test but a legacy template
+     let mut old_template = None;
+-
+-    // In order to call get_offset() on the parser,
+-    // this loop must not hold an exclusive reference to the parser.
+-    loop {
+-        let offset = parser.get_offset();
+-        let line_number = bytecount::count(&s.as_bytes()[0..offset], b'\n');
+-        let event = if let Some(event) = parser.next() {
+-            event
+-        } else {
+-            break;
+-        };
++    
++    for (event, range) in parser.into_offset_iter() {
++        let line_number = bytecount::count(&s.as_bytes()[0..range.start], b'\n');
+         match event {
+-            Event::Start(Tag::Header(level)) if level < 3 => {
+-                buffer = Buffer::Header(String::new());
++            Event::Start(Tag::Heading(level)) if level < 3 => {
++                buffer = Buffer::Heading(String::new());
+             }
+-            Event::End(Tag::Header(level)) if level < 3 => {
++            Event::End(Tag::Heading(level)) if level < 3 => {
+                 let cur_buffer = mem::replace(&mut buffer, Buffer::None);
+-                if let Buffer::Header(sect) = cur_buffer {
++                if let Buffer::Heading(sect) = cur_buffer {
+                     section = Some(sanitize_test_name(&sect));
+                 }
+             }
+@@ -231,8 +223,8 @@ fn extract_tests_from_string(s: &str, file_stem: &str) -> (Vec<Test>, Option<Str
+                     if buf.is_empty() {
+                         code_block_start = line_number;
+                     }
+-                    buf.push(text.into_owned());
+-                } else if let Buffer::Header(ref mut buf) = buffer {
++                    buf.extend(text.lines().map(|s| format!("{}\n", s)));
++                } else if let Buffer::Heading(ref mut buf) = buffer {
+                     buf.push_str(&*text);
+                 }
+             }
+-- 
+2.21.0
+

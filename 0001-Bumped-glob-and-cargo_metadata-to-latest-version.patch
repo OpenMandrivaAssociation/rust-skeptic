@@ -1,0 +1,64 @@
+ From 765ec44a41410de6190af2067b3f1f9ca1dc170e Mon Sep 17 00:00:00 2001
+From: Michal Budzynski <budziq@gmail.com>
+Date: Thu, 14 Mar 2019 10:23:11 +0100
+Subject: [PATCH] Bumped glob and cargo_metadata to latest version
+
+bumped minimal rust version to 1.26 due to usage of underscore lifetimes in cargo_metadata
+---
+ lib.rs     | 19 ++++++++++---------
+ 1 files changed, 10 insertions(+), 9 deletions(-)
+
+diff --git a/lib.rs b/lib.rs
+index b24c5a2..2f47049 100644
+--- a/lib.rs
++++ b/lib.rs
+@@ -38,7 +38,7 @@ pub fn markdown_files_of_directory(dir: &str) -> Vec<PathBuf> {
+     };
+     let mut out = Vec::new();
+ 
+-    for path in glob_with(&format!("{}/**/*.md", dir), &opts)
++    for path in glob_with(&format!("{}/**/*.md", dir), opts)
+         .expect("Failed to read glob pattern")
+         .filter_map(Result::ok)
+     {
+@@ -549,14 +549,15 @@ pub mod rt {
+         dependencies: Vec<String>,
+     }
+ 
++    fn get_cargo_meta<P: AsRef<Path>>(pth: P) -> Result<cargo_metadata::Metadata> {
++        Ok(cargo_metadata::MetadataCommand::new().manifest_path(&pth).exec()?)
++    }
++
+     impl LockedDeps {
+         fn from_path<P: AsRef<Path>>(pth: P) -> Result<LockedDeps> {
+             let pth = pth.as_ref().join("Cargo.toml");
+-            let metadata = cargo_metadata::metadata_deps(Some(&pth), true)?;
+-            let workspace_members:Vec<String> = metadata.workspace_members
+-                .into_iter()
+-                .map(|workspace| {format!("{} {} ({})", workspace.name(), workspace.version(), workspace.url())})
+-                .collect();
++            let metadata = get_cargo_meta(&pth)?;
++            let workspace_members = metadata.workspace_members;
+             let deps = metadata.resolve.ok_or("Missing dependency metadata")?
+                 .nodes
+                 .into_iter()
+@@ -564,7 +565,7 @@ pub mod rt {
+                 .flat_map(|node| node.dependencies.into_iter())
+                 .chain(workspace_members.clone());
+ 
+-            Ok(LockedDeps { dependencies: deps.collect() })
++            Ok(LockedDeps { dependencies: deps.map(|node| node.repr ).collect() })
+         }
+     }
+ 
+@@ -655,8 +656,8 @@ pub mod rt {
+ 
+     fn get_edition<P: AsRef<Path>>(path: P) -> Result<String> {
+         let path = path.as_ref().join("Cargo.toml");
+-        let manifest = cargo_metadata::metadata(Some(&path))?;
+-        let edition = manifest.packages.iter()
++        let metadata = get_cargo_meta(&path)?;
++        let edition = metadata.packages.iter()
+             .map(|package| &package.edition)
+             .max_by_key(|edition| u64::from_str(edition).unwrap())
+             .unwrap()

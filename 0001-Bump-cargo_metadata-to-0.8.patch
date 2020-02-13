@@ -1,0 +1,67 @@
+From f6a22b95f36f4918ed2f53a2920690ad8aec5bff Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Robert-Andr=C3=A9=20Mauchin?= <zebob.m@gmail.com>
+Date: Wed, 31 Jul 2019 22:11:03 +0200
+Subject: [PATCH] Bump cargo_metadata to 0.8
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Signed-off-by: Robert-André Mauchin <zebob.m@gmail.com>
+---
+ Cargo.toml |  3 ++-
+ lib.rs     | 14 +++++++++-----
+ 2 files changed, 11 insertions(+), 6 deletions(-)
+
+diff --git a/Cargo.toml b/Cargo.toml
+index 57a07f4..33341a1 100644
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -36,6 +36,9 @@ version = "0.8"
+ version = "0.12"
+ default-features = false
+ 
++[dependencies.failure]
++version = "0.1"
++
+ [dependencies.glob]
+ version = "0.3"
+ 
+diff --git a/lib.rs b/lib.rs
+index 08c0066..de24c98 100644
+--- a/lib.rs
++++ b/lib.rs
+@@ -1,5 +1,6 @@
+ #[macro_use]
+ extern crate error_chain;
++extern crate failure;
+ extern crate pulldown_cmark as cmark;
+ extern crate tempdir;
+ extern crate glob;
+@@ -533,12 +534,14 @@ pub mod rt {
+ 
+     use self::walkdir::WalkDir;
+     use self::serde_json::Value;
++    
++    use failure::ResultExt as _;
+ 
+     error_chain! {
+         errors { Fingerprint }
+         foreign_links {
+             Io(std::io::Error);
+-            Metadata(cargo_metadata::Error);
++            Metadata(failure::Compat<cargo_metadata::Error>);
+             Json(serde_json::Error);
+         }
+     }
+@@ -556,7 +559,7 @@ pub mod rt {
+     }
+ 
+     fn get_cargo_meta<P: AsRef<Path>>(pth: P) -> Result<cargo_metadata::Metadata> {
+-        Ok(cargo_metadata::MetadataCommand::new().manifest_path(&pth).exec()?)
++        Ok(cargo_metadata::MetadataCommand::new().manifest_path(&pth).exec().compat()?)
+     }
+ 
+     impl LockedDeps {
+-- 
+2.21.0
+
